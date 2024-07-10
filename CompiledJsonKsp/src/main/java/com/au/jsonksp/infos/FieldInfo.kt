@@ -1,0 +1,26 @@
+package com.au.jsonksp.infos
+
+import com.au.jsonannotations.JSONObjectGetType
+
+data class FieldInfo(val fieldName:String,
+                     val type: FieldInfoGetType,
+                     val altName:String? = null,
+                     val serialize:Boolean = true,
+                     val deserialize:Boolean = true)
+
+open class FieldInfoGetType(val getType: JSONObjectGetType, var checked:Boolean = true)
+
+/**
+ * 带泛型的类型。基本上只支持List和Array
+ */
+class ArrayFieldInfoGetType(type: JSONObjectGetType, var outClass:String, var genericClass:String)
+    : FieldInfoGetType(type, false) {
+
+    }
+
+class ObjectFieldInfoGetType(type: JSONObjectGetType, var clazz:String)
+    : FieldInfoGetType(type, false)
+
+//todo 现在强制要求public
+//class GetFuncFieldInfoGetType(functionName:String, returnClass:String) : FieldInfoGetType(JSONObjectGetType.Function)
+//class SetFuncFieldInfoGetType(functionName:String, setClass:String, genericClass: String? = null) : FieldInfoGetType(JSONObjectGetType.Function)
