@@ -8,18 +8,30 @@ data class FieldInfo(val fieldName:String,
                      val serialize:Boolean = true,
                      val deserialize:Boolean = true)
 
-open class FieldInfoGetType(val getType: JSONObjectGetType, var checked:Boolean = true)
+open class FieldInfoGetType(val getType: JSONObjectGetType) //, var checked:Boolean = true
 
 /**
  * 带泛型的类型。基本上只支持List和Array
  */
-class ArrayFieldInfoGetType(type: JSONObjectGetType, var outClass:String, var genericClass:String)
-    : FieldInfoGetType(type, false) {
-
+class ArrayFieldInfoGetType(type: JSONObjectGetType, var genericClass:String, var arrayOrList:Boolean)
+    : FieldInfoGetType(type) { //, false
     }
 
+class KtIntArrayFieldInfoGetType(type: JSONObjectGetType)
+    : FieldInfoGetType(type) { //, false
+}
+class KtBooleanArrayFieldInfoGetType(type: JSONObjectGetType)
+    : FieldInfoGetType(type) { //, false
+}
+class KtDoubleArrayFieldInfoGetType(type: JSONObjectGetType)
+    : FieldInfoGetType(type) { //, false
+}
+class KtLongArrayFieldInfoGetType(type: JSONObjectGetType)
+    : FieldInfoGetType(type) { //, false
+}
+
 class ObjectFieldInfoGetType(type: JSONObjectGetType, var clazz:String)
-    : FieldInfoGetType(type, false)
+    : FieldInfoGetType(type) //, false
 
 //todo 现在强制要求public
 //class GetFuncFieldInfoGetType(functionName:String, returnClass:String) : FieldInfoGetType(JSONObjectGetType.Function)

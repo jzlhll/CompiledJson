@@ -1,6 +1,7 @@
 package com.au.jsonksp
 
-import com.au.jsonannotations.CompiledJsonBean
+import com.au.jsonannotations.CompiledJsonJavaBean
+import com.au.jsonannotations.CompiledJsonKtBean
 import com.au.jsonksp.JsonKspProvider.Companion.log
 import com.au.jsonksp.infos.FieldInfo
 import com.google.devtools.ksp.processing.Resolver
@@ -24,43 +25,67 @@ class KspSymbolProcessor() : SymbolProcessor {
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         log("process start....")
-        val symbols = resolver.getSymbolsWithAnnotation(CompiledJsonBean::class.java.canonicalName)
         val ret = mutableListOf<KSAnnotated>()
 
-        symbols.toList().forEach { symbol->
-            if (!symbol.validate())
-                ret.add(symbol)
-            else {
-                if (symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS) {
-                    processKClass(symbol)
-                } else {
+        do {
+            val symbols = resolver.getSymbolsWithAnnotation(CompiledJsonJavaBean::class.java.canonicalName)
+            symbols.toList().forEach { symbol->
+                if (!symbol.validate())
                     ret.add(symbol)
+                else {
+                    if (symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS) {
+                        processKClass(symbol, true)
+                    } else {
+                        ret.add(symbol)
+                    }
                 }
             }
-        }
+        } while(false)
+
+        do {
+            val symbols = resolver.getSymbolsWithAnnotation(CompiledJsonKtBean::class.java.canonicalName)
+            symbols.toList().forEach { symbol->
+                if (!symbol.validate())
+                    ret.add(symbol)
+                else {
+                    if (symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS) {
+                        processKClass(symbol, false)
+                    } else {
+                        ret.add(symbol)
+                    }
+                }
+            }
+        } while(false)
+
+        log("process collection classes over...")
+
+        Globals.export()
+
+        log("process end.")
         //返回无法处理的符号
         return ret
     }
 
     //解析类
-    private fun processKClass(classDeclar:KSClassDeclaration) {
+    private fun processKClass(classDeclar:KSClassDeclaration, isJava:Boolean) {
         val qualifiedClassName = classDeclar.qualifiedName?.asString()!!
         val simpleName = classDeclar.simpleName.asString()
-        log("processKClass..start..$qualifiedClassName")
-
-        if (simpleName.lowercase() != simpleName) {
+        val lowerSimpleName = simpleName.lowercase()
+        log("\n----processKClass..start..$qualifiedClassName($simpleName) ---")
+        if (lowerSimpleName == simpleName) {
             throw RuntimeException("Please change your class $qualifiedClassName's name to CamelCase!")
         }
 
         val pkgAndParent = qualifiedNameToPkgAndParent(qualifiedClassName)
+        log("pkgAndParent $pkgAndParent")
         Globals.classAndParentMap[qualifiedClassName] = pkgAndParent.second
+        Globals.classAndIsJavaMap[qualifiedClassName] = isJava
 
         classDeclar.declarations.forEach { declaration ->
             if (declaration is KSPropertyDeclaration) {
                 processPropertyDeclaration(classDeclar, declaration)
             }
         }
-        Globals.fixAndExport()
     }
 
     private fun isFieldTransientOrStatic(propertyDeclaration: KSPropertyDeclaration) : Boolean {

@@ -2,9 +2,16 @@ package com.au.jsonksp.codes
 
 import com.au.jsonannotations.JSONObjectGetType
 import com.au.jsonksp.Globals
+import com.au.jsonksp.JsonKspProvider.Companion.log
 import com.au.jsonksp.infos.ArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtBooleanArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtDoubleArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtIntArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtLongArrayFieldInfoGetType
 import com.au.jsonksp.infos.ObjectFieldInfoGetType
 import com.au.jsonksp.isGenericClassBaseType
+import com.au.jsonksp.kotlinBaseTypeToJSONObjectGetFunc
+import com.au.jsonksp.kotlinBaseTypeToJavaGenericType
 import com.au.jsonksp.qualifiedNameToCompiledName
 
 /**
@@ -14,18 +21,19 @@ import com.au.jsonksp.qualifiedNameToCompiledName
  */
 class BeanFromJSONObjectGenerator(private val fullClazz:String) {
     private val tempCode = """
+
         @NonNull
         public static $fullClazz fromJSONObject(JSONObject jo) throws JSONException {
-        $fullClazz bean = new $fullClazz();
-        //todoFromJSONObjectBody
-        return bean;
+            $fullClazz bean = new $fullClazz();
+            //todoFromJSONObjectBody
+            return bean;
         }
         
         @NonNull
         public static List<$fullClazz> fromJSONArray(JSONArray ja) throws JSONException {
-        List<$fullClazz> list = new ArrayList<>();
-        //todoFromJSONArrayBody
-        return list;
+            List<$fullClazz> list = new ArrayList<>();
+            //todoFromJSONArrayBody
+            return list;
         }
 
         @Nullable
@@ -37,9 +45,10 @@ class BeanFromJSONObjectGenerator(private val fullClazz:String) {
         @Nullable
         public static List<$fullClazz> fromJsonList(@NonNull String json) throws JSONException {
             JSONArray jo = new JSONArray(json);
-            return fromJSONArray(ja);
+            return fromJSONArray(jo);
         }
-    """.trimIndent()
+
+    """.trimMargin()
 
     fun generate() : String {
         val body = StringBuilder()
@@ -49,6 +58,7 @@ class BeanFromJSONObjectGenerator(private val fullClazz:String) {
             if (!fi.deserialize) continue
 
             val fromFieldName = if(fi.altName.isNullOrEmpty()) fi.fieldName else fi.altName
+            log("generate $fromFieldName ${fi.type.getType}====")
             when (fi.type.getType) {
                 JSONObjectGetType.getInt,
                 JSONObjectGetType.getBoolean,
@@ -57,53 +67,134 @@ class BeanFromJSONObjectGenerator(private val fullClazz:String) {
                 JSONObjectGetType.getString -> {
                     body.append(
                         """
-                            bean.${fi.fieldName} = jo.${fi.type.getType}("$fromFieldName");
-                    """.trimIndent()
-                    )
+
+            bean.${fi.fieldName} = jo.${fi.type.getType}("$fromFieldName");
+                    """.trimMargin()
+                    ).appendLine()
                 }
 
                 JSONObjectGetType.getJSONObject -> {
                     val objectType = fi.type as ObjectFieldInfoGetType
-                    val fieldJo = "${fi.fieldName}Jo"
                     val compiledClass = qualifiedNameToCompiledName(objectType.clazz)
                     body.append("""
-                        JSONObject $fieldJo = jo.getJSONObject("$fromFieldName");
-                        bean.${fi.fieldName} = ${compiledClass}.fromJSONObject($fieldJo);
-                    """.trimIndent())
+
+            bean.${fi.fieldName} = ${compiledClass}.fromJSONObject(jo.getJSONObject("$fromFieldName"));
+                    """.trimMargin()).appendLine()
                 }
                 JSONObjectGetType.getJSONArray -> {
-                    val arrayType = fi.type as ArrayFieldInfoGetType
-                    val genericClass = arrayType.genericClass
-                    val fieldJa = "${fi.fieldName}Ja"
-                    val jaLen = "${fieldJa}Len"
+                    val fieldJSONArray = "${fi.fieldName}JSONArray"
+                    val jaLen = "${fieldJSONArray}Len"
                     val createList = fi.fieldName
-                    if (isGenericClassBaseType(genericClass)) {
-                        body.append("""
-                            JSONArray $fieldJa = jo.getJSONArray("$fromFieldName");
-                            int $jaLen = $fieldJa.length();
-                            ArrayList<$genericClass> $createList = new ArrayList<>();
-                            for (int i = 0; i < $jaLen; i++) {
-                                list.add($fieldJa.${fi.type.getType}(i));
-                            }
-                            bean.${fi.fieldName} = $createList;//todo array[]
 
-                        """.trimIndent())
+                    if (fi.type is KtIntArrayFieldInfoGetType) {
+                        body.append("""
+
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            int[] $createList = new int[$jaLen];
+            for (int i = 0; i < $jaLen; i++) {
+                //todo jsonArray inner is also json Array, List<List<SubClass>>
+                $createList[i] = $fieldJSONArray.getInt(i);
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
+                    }  else if (fi.type is KtDoubleArrayFieldInfoGetType) {
+                        body.append("""
+
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            double[] $createList = new double[$jaLen];
+            for (int i = 0; i < $jaLen; i++) {
+                //todo jsonArray inner is also json Array, List<List<SubClass>>
+                $createList[i] = $fieldJSONArray.getDouble(i);
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
+                    } else if (fi.type is KtLongArrayFieldInfoGetType) {
+                        body.append("""
+
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            long[] $createList = new long[$jaLen];
+            for (int i = 0; i < $jaLen; i++) {
+                //todo jsonArray inner is also json Array, List<List<SubClass>>
+                $createList[i] = $fieldJSONArray.getLong(i);
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
+                    }  else if (fi.type is KtBooleanArrayFieldInfoGetType) {
+                        body.append("""
+
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            boolean[] $createList = new boolean[$jaLen];
+            for (int i = 0; i < $jaLen; i++) {
+                //todo jsonArray inner is also json Array, List<List<SubClass>>
+                $createList[i] = $fieldJSONArray.getBoolean(i);
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
                     } else {
-                        body.append("""
-                            JSONArray $fieldJa = jo.getJSONArray("$fromFieldName");
-                            int $jaLen = $fieldJa.length();
-                            ArrayList<$genericClass> $createList = new ArrayList<>();
-                            for (int i = 0; i < $jaLen; i++) {
-                                list.add($fieldJa.${fi.type.getType}(i));
-                            }
-                            bean.${fi.fieldName} = $createList;
+                        fi.type as ArrayFieldInfoGetType
+                        val genericClass = fi.type.genericClass
+                        val arrayOrList = fi.type.arrayOrList
 
-                        """.trimIndent())
+                        if (isGenericClassBaseType(genericClass)) {
+                            val javaGenericClass = kotlinBaseTypeToJavaGenericType(genericClass)
+                            val getFunc = kotlinBaseTypeToJSONObjectGetFunc(genericClass)
+                            body.append("""
+
+            ArrayList<$javaGenericClass> $createList = new ArrayList<>();
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            for (int i = 0; i < $jaLen; i++) {
+                $createList.add($fieldJSONArray.${getFunc}(i));
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
+                        } else {
+                            if (arrayOrList) {
+                                body.append("""
+
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            $genericClass[] $createList = new $genericClass[$jaLen];
+            for (int i = 0; i < $jaLen; i++) {
+                //todo jsonArray inner is also json Array, List<List<SubClass>>
+                $createList[i] = ${qualifiedNameToCompiledName(genericClass)}.fromJSONObject($fieldJSONArray.getJSONObject(i));
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
+                            } else {
+                                body.append("""
+
+            ArrayList<$genericClass> $createList = new ArrayList<>();
+            JSONArray $fieldJSONArray = jo.getJSONArray("$fromFieldName");
+            int $jaLen = $fieldJSONArray.length();
+            for (int i = 0; i < $jaLen; i++) {
+                //todo jsonArray inner is also json Array, List<List<SubClass>>
+                $createList.add(${qualifiedNameToCompiledName(genericClass)}.fromJSONObject($fieldJSONArray.getJSONObject(i)));
+            }
+            bean.${fi.fieldName} = $createList;
+                            """.trimMargin()).appendLine()
+                            }
+                        }
                     }
                 }
             }
         }
 
+        val fromJSONArray = """
+
+            int len = ja.length();
+            for (int i = 0; i < len; i++) {
+                list.add(fromJSONObject(ja.getJSONObject(i)));
+            }
+        """.trimMargin()
+
         return tempCode
+            .replace("//todoFromJSONObjectBody", body.toString())
+            .replace("//todoFromJSONArrayBody", fromJSONArray + "\n")
     }
+
 }

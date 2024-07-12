@@ -54,6 +54,6 @@ public class PersonBeanCompiled implements ICompiled<%Bean%> {
     }
 }
 
-    """.trimIndent()
+    """.trimMargin()
 
 }

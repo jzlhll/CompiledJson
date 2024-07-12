@@ -3,8 +3,13 @@ package com.au.jsonksp.codes
 import com.au.jsonannotations.JSONObjectGetType
 import com.au.jsonksp.Globals
 import com.au.jsonksp.infos.ArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtBooleanArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtDoubleArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtIntArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtLongArrayFieldInfoGetType
 import com.au.jsonksp.infos.ObjectFieldInfoGetType
 import com.au.jsonksp.isGenericClassBaseType
+import com.au.jsonksp.kotlinBaseTypeToJavaGenericType
 import com.au.jsonksp.qualifiedNameToCompiledName
 
 /**
@@ -13,26 +18,24 @@ import com.au.jsonksp.qualifiedNameToCompiledName
  * @description:
  */
 class BeanToJSONObjectGenerator(private val fullClazz:String) {
-    private val compiledFullClazz = qualifiedNameToCompiledName(fullClazz)
-
     private val tempCode = """
         @NonNull
-        public static JSONObject toJSONObject(@NonNull $fullClazz bean) {
-        JSONObject jo = new JSONObject();
-        //todoJsonObjectBody
-        return jo;
+        public static JSONObject toJSONObject(@NonNull $fullClazz bean) throws JSONException {
+            JSONObject jo = new JSONObject();
+            //todoJsonObjectBody
+            return jo;
         }
         
         @NonNull
-        public static JSONArray toJSONArray(@NonNull $fullClazz[] beans) {
-        //todoJsonArrayBody
+        public static JSONArray toJSONArray(@NonNull $fullClazz[] beans) throws JSONException {
+            //todoJsonArrayBody
         }
 
         @NonNull
-        public static JSONArray toJSONArray(@NonNull List<$fullClazz> beans) {
-        //todoJsonArrayBody
+        public static JSONArray toJSONArray(@NonNull List<$fullClazz> beans) throws JSONException {
+            //todoJsonArrayBody
         }
-    """.trimIndent()
+    """.trimMargin()
 
     fun generate() : String {
         val fiList = Globals.class2FieldInfos[fullClazz] ?: return tempCode
@@ -50,52 +53,76 @@ class BeanToJSONObjectGenerator(private val fullClazz:String) {
                 JSONObjectGetType.getLong,
                 JSONObjectGetType.getString -> {
                     body.append("""
-                    jo.put("$outFieldName", $beanField);
-                    """.trimIndent())
+
+            jo.put("$outFieldName", $beanField);
+                    """.trimMargin()).appendLine()
                 }
                 JSONObjectGetType.getJSONObject ->
                 {
                     val objectType = fi.type as ObjectFieldInfoGetType
                     val compiledClass = qualifiedNameToCompiledName(objectType.clazz)
                     body.append("""
-                        jo.put("$outFieldName", "${compiledClass}.toJSONObject(${beanField})");
-                    """.trimIndent())
+
+            jo.put("$outFieldName", ${compiledClass}.toJSONObject(${beanField}));
+                    """.trimMargin()).appendLine()
                 }
                 JSONObjectGetType.getJSONArray -> {
-                    val arrayType = fi.type as ArrayFieldInfoGetType
-                    val genericClass = arrayType.genericClass
+                    val genericClass = when (fi.type) {
+                        is KtIntArrayFieldInfoGetType -> {
+                            "int"
+                        }
+
+                        is KtLongArrayFieldInfoGetType -> {
+                            "long"
+                        }
+
+                        is KtBooleanArrayFieldInfoGetType -> {
+                            "boolean"
+                        }
+
+                        is KtDoubleArrayFieldInfoGetType -> {
+                            "double"
+                        }
+
+                        else -> {
+                            (fi.type as ArrayFieldInfoGetType).genericClass
+                        }
+                    }
 
                     if (isGenericClassBaseType(genericClass)) {
                         val item = "${fi.fieldName}Item"
                         val jsonArr = "${fi.fieldName}JsonArr"
+                        val javaGenericClass = kotlinBaseTypeToJavaGenericType(genericClass)
                         body.append("""
-                        JSONArray $jsonArr = new JSONArray();
-                        for (${genericClass} $item : $beanField) {
-                            $jsonArr.put($item);
-                        }
-                        jo.put("$outFieldName", $jsonArr);
 
-                        """.trimIndent())
+            JSONArray $jsonArr = new JSONArray();
+            for (${javaGenericClass} $item : $beanField) {
+                $jsonArr.put($item);
+            }
+            jo.put("$outFieldName", $jsonArr);
+                        """.trimMargin()).appendLine()
                     } else {
                         val compiledClass = qualifiedNameToCompiledName(genericClass)
                         body.append("""
-                        jo.put("$outFieldName", ${compiledClass}.toJSONArray($beanField));
-                        """.trimIndent())
+
+            jo.put("$outFieldName", ${compiledClass}.toJSONArray($beanField));
+                        """.trimMargin()).appendLine()
                     }
                 }
             }
         }
 
         val jsonArrayBody = """
-        JSONArray ja = new JSONArray();
-        for ($fullClazz bean : beans) {
-            ja.put(toJSONObject(bean));
-        }
-        return ja;
-        """.trimIndent()
+
+            JSONArray ja = new JSONArray();
+            for ($fullClazz bean : beans) {
+                ja.put(toJSONObject(bean));
+            }
+            return ja;
+        """.trimMargin()
 
         return tempCode
-            .replace("//todoJsonArrayBody", jsonArrayBody)
+            .replace("//todoJsonArrayBody", jsonArrayBody + "\n")
             .replace("//todoJsonObjectBody", body.toString())
     }
 }

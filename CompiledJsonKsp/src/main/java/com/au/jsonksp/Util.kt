@@ -6,10 +6,13 @@ import com.au.jsonksp.JsonKspProvider.Companion.log
 import com.au.jsonksp.infos.ArrayFieldInfoGetType
 import com.au.jsonksp.infos.FieldInfoGetType
 import com.au.jsonksp.infos.ObjectFieldInfoGetType
+import com.au.jsonksp.infos.KtBooleanArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtDoubleArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtIntArrayFieldInfoGetType
+import com.au.jsonksp.infos.KtLongArrayFieldInfoGetType
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.KSTypeReference
 import java.io.OutputStreamWriter
-import kotlin.jvm.Throws
 
 
 fun writeToFile(packageName:String, fileName:String, code:String) {
@@ -17,7 +20,8 @@ fun writeToFile(packageName:String, fileName:String, code:String) {
     val file = env.codeGenerator.createNewFile(
         dependencies = Dependencies(false),
         packageName = packageName,
-        fileName = fileName
+        fileName = fileName,
+        extensionName = "java"
     )
 
     // 写入文件内容
@@ -32,7 +36,37 @@ fun isGenericClassBaseType(genericClass:String) : Boolean{
             || genericClass == "kotlin.String"
             || genericClass == "kotlin.Double"
             || genericClass == "kotlin.Long"
-            || genericClass == "kotlin.Boolean")
+            || genericClass == "kotlin.Boolean"
+            || genericClass == "int"
+            || genericClass == "long"
+            || genericClass == "double"
+            || genericClass == "boolean"
+            || genericClass == "String")
+}
+
+/**
+ * 比如kotlin中的List<Int> 转成java的List<Integer>
+ */
+fun kotlinBaseTypeToJavaGenericType(type:String) : String {
+    return when (type) {
+        "kotlin.Int" -> "Integer"
+        "kotlin.String" -> "String"
+        "kotlin.Double" -> "Double"
+        "kotlin.Long" -> "Long"
+        "kotlin.Boolean" -> "Boolean"
+        else -> type
+    }
+}
+
+fun kotlinBaseTypeToJSONObjectGetFunc(type:String) : String {
+    return when (type) {
+        "kotlin.Int" -> "getInt"
+        "kotlin.String" -> "getString"
+        "kotlin.Double" -> "getDouble"
+        "kotlin.Long" -> "getLong"
+        "kotlin.Boolean" -> "getBoolean"
+        else -> ""
+    }
 }
 
 @Throws
@@ -44,6 +78,10 @@ fun KSTypeReference.toCompiledJsonType(log:String) : FieldInfoGetType {
         "int", "Integer", "Int" -> FieldInfoGetType(JSONObjectGetType.getInt)
         "long", "Long" -> FieldInfoGetType(JSONObjectGetType.getLong)
         "String" -> FieldInfoGetType(JSONObjectGetType.getString)
+        "IntArray" -> KtIntArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
+        "LongArray" -> KtLongArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
+        "DoubleArray" -> KtDoubleArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
+        "BooleanArray" -> KtBooleanArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
         else ->
         {
             //带泛型SubBean的List形式
@@ -52,13 +90,15 @@ fun KSTypeReference.toCompiledJsonType(log:String) : FieldInfoGetType {
             val genericClass = class2GenericClass.second
             //todo 不论是List泛型，还是直接的subBean。都需要检验是否是一个CompiledJsonBean
 
-            if (toStr.contains("List<") || toStr.contains("Array<")) {
+            val isList = toStr.contains("List<")
+            val isArray = toStr.contains("Array<")
+            if (isList || isArray) {
                 log("is list class2GenericClass: $class2GenericClass")
                 if (outClass != null && genericClass != null) {
-                    ArrayFieldInfoGetType(JSONObjectGetType.getJSONArray, outClass, genericClass).also {
-                        if (isGenericClassBaseType(genericClass)) {
-                            it.checked = true
-                        }
+                    ArrayFieldInfoGetType(JSONObjectGetType.getJSONArray, genericClass, isArray).also {
+//                        if (isGenericClassBaseType(genericClass)) {
+//                            it.checked = true
+//                        }
                     }
                 } else {
                     throw IllegalArgumentException("[CompiledJson] Please change $log to known type\n java is " +
@@ -122,11 +162,11 @@ fun qualifiedNameToPkgAndParent(fullName:String) : Pair<String, String?> {
     } else {
         val parentSb = StringBuilder()
         var j = 0
-        while (j <= i + 1) {
-            pkgSb.append(items[j]).append(".")
+        while (j < len - 1) {
+            parentSb.append(items[j]).append(".")
             j++
         }
-        parentSb.deleteAt(pkgSb.length - 1)
+        parentSb.deleteAt(parentSb.length - 1)
 
         return pkg to parentSb.toString()
     }
@@ -139,9 +179,10 @@ fun qualifiedNameToCompiledName(fullName:String) : String {
     var i = 0
     while (i < len) {
         if (items[i].lowercase() != items[i]) {
-            sb.append(items[i] + "Compiled")
+            sb.append(items[i] + "Compiled").append(".")
         }
         i++
     }
+    sb.deleteAt(sb.length - 1)
     return sb.toString()
 }
