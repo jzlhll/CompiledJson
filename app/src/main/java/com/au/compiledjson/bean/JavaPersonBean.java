@@ -1,11 +1,11 @@
 package com.au.compiledjson.bean;
 
-import com.au.jsonannotations.CompiledJsonJavaBean;
+import com.au.jsonannotations.CompiledJsonBean;
 import com.au.jsonannotations.CompiledJsonField;
 
 import java.util.List;
 
-@CompiledJsonJavaBean
+@CompiledJsonBean
 public class JavaPersonBean {
     public String name;
 
@@ -28,12 +28,12 @@ public class JavaPersonBean {
 
     public String extra;
 
-    @CompiledJsonJavaBean
+    @CompiledJsonBean
     public static final class SubBean {
         public String address;
         public String custom;
 
-        @CompiledJsonJavaBean
+        @CompiledJsonBean
         public static final class ThirdBean {
             public int ex;
         }

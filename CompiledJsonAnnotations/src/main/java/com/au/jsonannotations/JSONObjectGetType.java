@@ -10,11 +10,11 @@ package com.au.jsonannotations;
  * getJSONObject
  */
 public enum JSONObjectGetType {
-    getBoolean,
-    getDouble,
-    getInt,
-    getLong,
-    getString,
-    getJSONArray,
-    getJSONObject,
+    optBoolean,
+    optDouble,
+    optInt,
+    optLong,
+    optString,
+    optJSONArray,
+    optJSONObject,
 }

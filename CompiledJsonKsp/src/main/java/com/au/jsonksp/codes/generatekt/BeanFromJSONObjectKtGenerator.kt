@@ -1,8 +1,9 @@
-package com.au.jsonksp.codes
+package com.au.jsonksp.codes.generatekt
 
 import com.au.jsonannotations.JSONObjectGetType
 import com.au.jsonksp.Globals
-import com.au.jsonksp.JsonKspProvider.Companion.log
+import com.au.jsonksp.JsonKspProvider
+import com.au.jsonksp.codes.AbsGenerator
 import com.au.jsonksp.infos.ArrayFieldInfoGetType
 import com.au.jsonksp.infos.KtBooleanArrayFieldInfoGetType
 import com.au.jsonksp.infos.KtDoubleArrayFieldInfoGetType
@@ -19,46 +20,43 @@ import com.au.jsonksp.qualifiedNameToCompiledName
  * @date :2024/7/9 14:46
  * @description:
  */
-class BeanFromJSONObjectGenerator(private val fullClazz:String) {
+class BeanFromJSONObjectKtGenerator(fullClazz:String) : AbsGenerator(fullClazz) {
     private val tempCode = """
 
-        @NonNull
-        public static $fullClazz fromJSONObject(JSONObject jo) throws JSONException {
-            $fullClazz bean = new $fullClazz();
+        @Throws(JSONException::class)
+        fun fromJSONObject(jo:JSONObject) : $fullClazz {
             //todoFromJSONObjectBody
-            return bean;
-        }
-        
-        @NonNull
-        public static List<$fullClazz> fromJSONArray(JSONArray ja) throws JSONException {
-            List<$fullClazz> list = new ArrayList<>();
-            //todoFromJSONArrayBody
-            return list;
         }
 
-        @Nullable
-        public static $fullClazz fromJson(@NonNull String json) throws JSONException {
-            JSONObject jo = new JSONObject(json);
-            return fromJSONObject(jo);
+        @Throws(JSONException::class)
+        fun fromJSONArray(ja:JSONArray) : ArrayList<$fullClazz> {
+            val list = ArrayList<$fullClazz>()
+            //todoFromJSONArrayBody
+            return list
         }
-    
-        @Nullable
-        public static List<$fullClazz> fromJsonList(@NonNull String json) throws JSONException {
-            JSONArray jo = new JSONArray(json);
-            return fromJSONArray(jo);
-        }
+
+        @Throws(JSONException::class)
+        fun fromJson(json:String) = fromJSONObject(JSONObject(json))
+
+        @Throws(JSONException::class)
+        fun fromJsonList(json:String) = fromJSONArray(JSONArray(json))
 
     """.trimMargin()
 
-    fun generate() : String {
+    override fun generate() : String {
         val body = StringBuilder()
+        body.append("""
+
+            $fullClazz bean = new $fullClazz();
+        """.trimMargin()).appendLine()
+
         val fiList = Globals.class2FieldInfos[fullClazz] ?: return tempCode
 
         for (fi in fiList) {
             if (!fi.deserialize) continue
 
             val fromFieldName = if(fi.altName.isNullOrEmpty()) fi.fieldName else fi.altName
-            log("generate $fromFieldName ${fi.type.getType}====")
+            JsonKspProvider.log("generate $fromFieldName ${fi.type.getType}====")
             when (fi.type.getType) {
                 JSONObjectGetType.getInt,
                 JSONObjectGetType.getBoolean,
@@ -183,6 +181,11 @@ class BeanFromJSONObjectGenerator(private val fullClazz:String) {
                 }
             }
         }
+
+        body.append("""
+
+            return bean;
+        """.trimMargin())
 
         val fromJSONArray = """
 

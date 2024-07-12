@@ -1,13 +1,12 @@
 package com.au.jsonksp
 
 import com.au.jsonksp.JsonKspProvider.Companion.log
-import com.au.jsonksp.codes.BeanFromJSONObjectGenerator
-import com.au.jsonksp.codes.BeanToJSONObjectGenerator
 import com.au.jsonksp.codes.InnerTemplateCode
 import com.au.jsonksp.codes.TopTemplateCode
+import com.au.jsonksp.codes.generate.BeanFromJSONObjectGenerator
+import com.au.jsonksp.codes.generate.BeanToJSONObjectGenerator
 import com.au.jsonksp.infos.ClassTree
 import com.au.jsonksp.infos.FieldInfo
-import java.util.concurrent.atomic.AtomicInteger
 
 object Globals {
     /**
@@ -21,32 +20,7 @@ object Globals {
      */
     val classAndParentMap : HashMap<String, String?> = HashMap()
 
-    val classAndIsJavaMap : HashMap<String, Boolean> = HashMap()
-
     private val classTreeManager = ClassTreeManager()
-
-//    @Synchronized
-//    private fun fix() {
-//        if(true) return //no need check
-//        if (class2FieldInfos.size <= 1) return
-//
-//        class2FieldInfos.forEach { (_, fieldInfos) ->
-//            fieldInfos.forEach { fieldInfo->
-//                val type = fieldInfo.type
-//                if (!type.checked) { //需要检测是否存在这种类型
-//                    if (type is ArrayFieldInfoGetType) {
-//                        if (class2FieldInfos.containsKey(type.genericClass)) {
-//                            type.checked = true
-//                        }
-//                    } else if (type is ObjectFieldInfoGetType) {
-//                        if (class2FieldInfos.containsKey(type.clazz)) {
-//                            type.checked = true
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     private fun oneClassExport(clazz:String, subs:List<ClassTree>, isInner:Boolean) : String {
         log("onClass Export $clazz ${subs.size}")
@@ -90,15 +64,9 @@ object Globals {
 
     @Synchronized
     fun export() {
-//        fix()
         while (true) {
             val classTree = classTreeManager.findClassTree() ?: break
             classTreeExport(classTree)
         }
-    }
-
-    private val atomicInteger = AtomicInteger(0)
-    fun nextRandomIndex() : String {
-        return String.format("%d", atomicInteger.addAndGet(1))
     }
 }

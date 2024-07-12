@@ -1,9 +1,9 @@
 package com.au.compiledjson.bean
 
+import com.au.jsonannotations.CompiledJsonBean
 import com.au.jsonannotations.CompiledJsonField
-import com.au.jsonannotations.CompiledJsonKtBean
 
-@CompiledJsonKtBean
+@CompiledJsonBean
 class PersonBean(
     var name:String?,
     var info:String?,
@@ -12,7 +12,9 @@ class PersonBean(
     @Transient
     var isSelected: Boolean = false) {
 
-    @CompiledJsonKtBean
+    var inInfo:String? = null
+
+    @CompiledJsonBean
     class PersonKtSubBean(var ex:String, val n:Int)
 
     companion object {

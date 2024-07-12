@@ -6,7 +6,7 @@ abstract class TemplateCode {
     abstract val endCode:String
 }
 
-class TopTemplateCode : TemplateCode() {
+class TopTemplateCode(private val extension:Extension = Extension.Java) : TemplateCode() {
     fun insertPackage(pkg:String) {
         code = code.replace("%package%", pkg)
     }
@@ -22,7 +22,28 @@ class TopTemplateCode : TemplateCode() {
     override val endCode: String
         get() = code
 
-    private var code = """
+    private var code = initCode()
+
+    private fun initCode() : String {
+        return when (extension) {
+            Extension.Kotlin -> {
+"""
+package %package%
+
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
+
+class %name%Compiled {
+    companion object {
+    //todoBody
+    }
+}
+    """.trimMargin()
+            }
+
+            Extension.Java -> {
+"""
 package %package%;
 
 import androidx.annotation.NonNull;
@@ -36,9 +57,12 @@ public final class %name%Compiled {
     //todoBody
 }
     """.trimMargin()
+            }
+        }
+    }
 }
 
-class InnerTemplateCode : TemplateCode(){
+class InnerTemplateCode(private val extension: Extension = Extension.Java) : TemplateCode(){
     override fun insertBeanSimpleName(classQualifiedName:String) {
         code = code.replace("%name%", classQualifiedName)
     }
@@ -50,11 +74,30 @@ class InnerTemplateCode : TemplateCode(){
     override val endCode: String
         get() = code
 
-    private var code = """
+    private var code = initCode()
+
+    private fun initCode():String{
+        return when(extension) {
+            Extension.Kotlin -> {
+                """
+
+    class %name%Compiled {
+        companion object {
+        //todoBody
+        }
+    }
+
+        """.trimMargin()
+            }
+            Extension.Java -> {
+                """
 
     public static final class %name%Compiled {
         //todoBody
     }
 
         """.trimMargin()
+            }
+        }
+    }
 }

@@ -18,15 +18,20 @@ import java.util.List;
  */
 public class Test {
 
-    @Nullable
-    public static JavaPersonBean fromJson(@NonNull String json) throws JSONException {
-        JSONObject jo = new JSONObject(json);
-        return JavaPersonBeanCompiled.fromJSONObject(jo);
+    @NonNull
+    public static JSONObject toJSONObject(@NonNull $fullClazz bean) throws JSONException {
+        JSONObject jo = new JSONObject();
+        //todoJsonObjectBody
+        return jo;
     }
 
-    @Nullable
-    public static List<JavaPersonBean> fromJsonList(@NonNull String json) throws JSONException {
-        JSONArray jo = new JSONArray(json);
-        return JavaPersonBeanCompiled.fromJSONArray(ja);
+    @NonNull
+    public static JSONArray toJSONArray(@NonNull $fullClazz[] beans) throws JSONException {
+        //todoJsonArrayBody
+    }
+
+    @NonNull
+    public static JSONArray toJSONArray(@NonNull List<$fullClazz> beans) throws JSONException {
+        //todoJsonArrayBody
     }
 }

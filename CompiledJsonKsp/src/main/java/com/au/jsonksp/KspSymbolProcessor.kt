@@ -1,15 +1,14 @@
 package com.au.jsonksp
 
-import com.au.jsonannotations.CompiledJsonJavaBean
-import com.au.jsonannotations.CompiledJsonKtBean
+import com.au.jsonannotations.CompiledJsonBean
 import com.au.jsonksp.JsonKspProvider.Companion.log
 import com.au.jsonksp.infos.FieldInfo
+import com.google.devtools.ksp.getConstructors
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.validate
@@ -20,36 +19,18 @@ import com.google.devtools.ksp.validate
  * warning:
  */
 class KspSymbolProcessor() : SymbolProcessor {
-    // 使用一个集合来跟踪已经处理过的符号
-    private val processedSymbols = mutableSetOf<KSDeclaration>()
-
     override fun process(resolver: Resolver): List<KSAnnotated> {
         log("process start....")
         val ret = mutableListOf<KSAnnotated>()
 
         do {
-            val symbols = resolver.getSymbolsWithAnnotation(CompiledJsonJavaBean::class.java.canonicalName)
+            val symbols = resolver.getSymbolsWithAnnotation(CompiledJsonBean::class.java.canonicalName)
             symbols.toList().forEach { symbol->
                 if (!symbol.validate())
                     ret.add(symbol)
                 else {
                     if (symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS) {
-                        processKClass(symbol, true)
-                    } else {
-                        ret.add(symbol)
-                    }
-                }
-            }
-        } while(false)
-
-        do {
-            val symbols = resolver.getSymbolsWithAnnotation(CompiledJsonKtBean::class.java.canonicalName)
-            symbols.toList().forEach { symbol->
-                if (!symbol.validate())
-                    ret.add(symbol)
-                else {
-                    if (symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS) {
-                        processKClass(symbol, false)
+                        processKClass(symbol)
                     } else {
                         ret.add(symbol)
                     }
@@ -67,23 +48,33 @@ class KspSymbolProcessor() : SymbolProcessor {
     }
 
     //解析类
-    private fun processKClass(classDeclar:KSClassDeclaration, isJava:Boolean) {
+    private fun processKClass(classDeclar:KSClassDeclaration) {
         val qualifiedClassName = classDeclar.qualifiedName?.asString()!!
         val simpleName = classDeclar.simpleName.asString()
         val lowerSimpleName = simpleName.lowercase()
-        log("\n----processKClass..start..$qualifiedClassName($simpleName) ---")
+        log("\n\n----processKClass..start..$qualifiedClassName($simpleName) ---")
         if (lowerSimpleName == simpleName) {
             throw RuntimeException("Please change your class $qualifiedClassName's name to CamelCase!")
         }
 
+        val constructors = classDeclar.getConstructors()
+        val constructorFieldNames = ArrayList<String>()
+        for (constructor in constructors) { //warning: 只管第一个构造函数。
+            val parameters = constructor.parameters
+            if (parameters.isNotEmpty()) {
+                for (parameter in parameters) {
+                    constructorFieldNames.add(parameter.name?.asString()!!)
+                }
+            }
+        }
+
         val pkgAndParent = qualifiedNameToPkgAndParent(qualifiedClassName)
-        log("pkgAndParent $pkgAndParent")
+        log("pkgAndParent $pkgAndParent, fieldNames $constructorFieldNames")
         Globals.classAndParentMap[qualifiedClassName] = pkgAndParent.second
-        Globals.classAndIsJavaMap[qualifiedClassName] = isJava
 
         classDeclar.declarations.forEach { declaration ->
             if (declaration is KSPropertyDeclaration) {
-                processPropertyDeclaration(classDeclar, declaration)
+                processPropertyDeclaration(classDeclar, declaration, constructorFieldNames)
             }
         }
     }
@@ -105,7 +96,9 @@ class KspSymbolProcessor() : SymbolProcessor {
     }
 
     //解析一个字段
-    private fun processPropertyDeclaration(classDeclar:KSClassDeclaration, propertyDeclaration: KSPropertyDeclaration) {
+    private fun processPropertyDeclaration(classDeclar:KSClassDeclaration,
+                                           propertyDeclaration: KSPropertyDeclaration,
+                                           constructorFieldNames:List<String>) {
         val classQualifiedName = classDeclar.qualifiedName?.asString()!!
         val log = "{" + classQualifiedName + " " + propertyDeclaration.simpleName.asString() + "}"
 
@@ -127,6 +120,7 @@ class KspSymbolProcessor() : SymbolProcessor {
         log("$log, type: ${propertyDeclaration.type}")
 
         val fieldName = propertyDeclaration.simpleName.asString()
+        val isInConstructor = constructorFieldNames.indexOf(fieldName)
         val type = propertyDeclaration.type.toCompiledJsonType(log)
         var altName:String? = null
         var deserialize = true
@@ -149,7 +143,7 @@ class KspSymbolProcessor() : SymbolProcessor {
             }
         }
         //得到了一个class的信息。添加进入数组并进行修正
-        val fi = FieldInfo(fieldName, type, altName=altName, serialize = serialize, deserialize = deserialize)
+        val fi = FieldInfo(fieldName, type, isInConstructor, altName=altName, serialize = serialize, deserialize = deserialize)
         Globals.addField(classQualifiedName, fi)
     }
 }

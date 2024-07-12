@@ -1,7 +1,8 @@
-package com.au.jsonksp.codes
+package com.au.jsonksp.codes.generate
 
 import com.au.jsonannotations.JSONObjectGetType
 import com.au.jsonksp.Globals
+import com.au.jsonksp.codes.AbsGenerator
 import com.au.jsonksp.infos.ArrayFieldInfoGetType
 import com.au.jsonksp.infos.KtBooleanArrayFieldInfoGetType
 import com.au.jsonksp.infos.KtDoubleArrayFieldInfoGetType
@@ -17,7 +18,7 @@ import com.au.jsonksp.qualifiedNameToCompiledName
  * @date :2024/7/8 15:17
  * @description:
  */
-class BeanToJSONObjectGenerator(private val fullClazz:String) {
+class BeanToJSONObjectGenerator(fullClazz:String) : AbsGenerator(fullClazz){
     private val tempCode = """
         @NonNull
         public static JSONObject toJSONObject(@NonNull $fullClazz bean) throws JSONException {
@@ -37,7 +38,7 @@ class BeanToJSONObjectGenerator(private val fullClazz:String) {
         }
     """.trimMargin()
 
-    fun generate() : String {
+    override fun generate() : String {
         val fiList = Globals.class2FieldInfos[fullClazz] ?: return tempCode
 
         val body = StringBuilder()
@@ -122,7 +123,7 @@ class BeanToJSONObjectGenerator(private val fullClazz:String) {
         """.trimMargin()
 
         return tempCode
-            .replace("//todoJsonArrayBody", jsonArrayBody + "\n")
+            .replace("//todoJsonArrayBody", jsonArrayBody)
             .replace("//todoJsonObjectBody", body.toString())
     }
 }

@@ -4,6 +4,7 @@ import com.au.jsonannotations.JSONObjectGetType
 
 data class FieldInfo(val fieldName:String,
                      val type: FieldInfoGetType,
+                     val isInConstructor:Int = -1, //-1表示不是构造函数的参数；0~N表示第几个参数位置
                      val altName:String? = null,
                      val serialize:Boolean = true,
                      val deserialize:Boolean = true)

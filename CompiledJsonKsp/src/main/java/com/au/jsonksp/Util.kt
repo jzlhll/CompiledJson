@@ -13,7 +13,12 @@ import com.au.jsonksp.infos.KtLongArrayFieldInfoGetType
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.KSTypeReference
 import java.io.OutputStreamWriter
+import java.util.concurrent.atomic.AtomicInteger
 
+private val atomicInteger = AtomicInteger(0)
+fun nextRandomIndex() : String {
+    return String.format("%d", atomicInteger.addAndGet(1))
+}
 
 fun writeToFile(packageName:String, fileName:String, code:String) {
     // 生成文件
@@ -58,13 +63,35 @@ fun kotlinBaseTypeToJavaGenericType(type:String) : String {
     }
 }
 
-fun kotlinBaseTypeToJSONObjectGetFunc(type:String) : String {
+fun kotlinBaseTypeToJSONObjectOptGetFunc(type:String) : String {
     return when (type) {
-        "kotlin.Int" -> "getInt"
-        "kotlin.String" -> "getString"
-        "kotlin.Double" -> "getDouble"
-        "kotlin.Long" -> "getLong"
-        "kotlin.Boolean" -> "getBoolean"
+        "kotlin.Int" -> "optInt"
+        "kotlin.String" -> "optString"
+        "kotlin.Double" -> "optDouble"
+        "kotlin.Long" -> "optLong"
+        "kotlin.Boolean" -> "optBoolean"
+        else -> ""
+    }
+}
+
+fun JSONObjectOptGetFuncToJavaBaseType(type:String) : String {
+    return when (type) {
+        "optInt" -> "int"
+        "optString" -> "String"
+        "optDouble" -> "double"
+        "optLong" -> "long"
+        "optBoolean" -> "boolean"
+        else -> ""
+    }
+}
+
+fun JSONObjectOptGetFuncToKtBaseType(type:String) : String {
+    return when (type) {
+        "optInt" -> "Int"
+        "optString" -> "String"
+        "optDouble" -> "Double"
+        "optLong" -> "Long"
+        "optBoolean" -> "Boolean"
         else -> ""
     }
 }
@@ -73,15 +100,15 @@ fun kotlinBaseTypeToJSONObjectGetFunc(type:String) : String {
 fun KSTypeReference.toCompiledJsonType(log:String) : FieldInfoGetType {
     val toStr = toString()
     return when (toStr) {
-        "Boolean", "boolean", "bool" -> FieldInfoGetType(JSONObjectGetType.getBoolean)
-        "double", "Double" -> FieldInfoGetType(JSONObjectGetType.getDouble)
-        "int", "Integer", "Int" -> FieldInfoGetType(JSONObjectGetType.getInt)
-        "long", "Long" -> FieldInfoGetType(JSONObjectGetType.getLong)
-        "String" -> FieldInfoGetType(JSONObjectGetType.getString)
-        "IntArray" -> KtIntArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
-        "LongArray" -> KtLongArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
-        "DoubleArray" -> KtDoubleArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
-        "BooleanArray" -> KtBooleanArrayFieldInfoGetType(JSONObjectGetType.getJSONArray)
+        "Boolean", "boolean", "bool" -> FieldInfoGetType(JSONObjectGetType.optBoolean)
+        "double", "Double" -> FieldInfoGetType(JSONObjectGetType.optDouble)
+        "int", "Integer", "Int" -> FieldInfoGetType(JSONObjectGetType.optInt)
+        "long", "Long" -> FieldInfoGetType(JSONObjectGetType.optLong)
+        "String" -> FieldInfoGetType(JSONObjectGetType.optString)
+        "IntArray" -> KtIntArrayFieldInfoGetType(JSONObjectGetType.optJSONArray)
+        "LongArray" -> KtLongArrayFieldInfoGetType(JSONObjectGetType.optJSONArray)
+        "DoubleArray" -> KtDoubleArrayFieldInfoGetType(JSONObjectGetType.optJSONArray)
+        "BooleanArray" -> KtBooleanArrayFieldInfoGetType(JSONObjectGetType.optJSONArray)
         else ->
         {
             //带泛型SubBean的List形式
@@ -95,7 +122,7 @@ fun KSTypeReference.toCompiledJsonType(log:String) : FieldInfoGetType {
             if (isList || isArray) {
                 log("is list class2GenericClass: $class2GenericClass")
                 if (outClass != null && genericClass != null) {
-                    ArrayFieldInfoGetType(JSONObjectGetType.getJSONArray, genericClass, isArray).also {
+                    ArrayFieldInfoGetType(JSONObjectGetType.optJSONArray, genericClass, isArray).also {
 //                        if (isGenericClassBaseType(genericClass)) {
 //                            it.checked = true
 //                        }
@@ -112,7 +139,7 @@ fun KSTypeReference.toCompiledJsonType(log:String) : FieldInfoGetType {
                             "{boolean, double, int, long, String, List<XXClass>, XXClass[],} or Wrap types(such as Integer), kotlin is " +
                             "{Boolean, Double, Int, Long, String, List<XXClass>, Array<XXClass>,}, ")
                 } else if (outClass != null) {
-                    ObjectFieldInfoGetType(JSONObjectGetType.getJSONObject, outClass)
+                    ObjectFieldInfoGetType(JSONObjectGetType.optJSONObject, outClass)
                 } else {
                     throw IllegalArgumentException("[CompiledJson] Please change $log to known type\n java is " +
                             "{boolean, double, int, long, String, List<XXClass>, XXClass[],} or Wrap types(such as Integer), kotlin is " +
